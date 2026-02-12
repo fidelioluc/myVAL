@@ -14,7 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      games: {
+        Row: {
+          clue: string | null
+          clue_number: number | null
+          code: string
+          created_at: string
+          found_player1: number[]
+          found_player2: number[]
+          guesses: number[]
+          hit_assassin: boolean
+          id: string
+          phase: string
+          player1_id: string | null
+          player1_map: Json | null
+          player1_ready: boolean
+          player2_id: string | null
+          player2_map: Json | null
+          player2_ready: boolean
+          reveal_results: Json | null
+          turn: string
+          turn_count: number
+          updated_at: string
+          winner: string | null
+          words: string[]
+        }
+        Insert: {
+          clue?: string | null
+          clue_number?: number | null
+          code?: string
+          created_at?: string
+          found_player1?: number[]
+          found_player2?: number[]
+          guesses?: number[]
+          hit_assassin?: boolean
+          id?: string
+          phase?: string
+          player1_id?: string | null
+          player1_map?: Json | null
+          player1_ready?: boolean
+          player2_id?: string | null
+          player2_map?: Json | null
+          player2_ready?: boolean
+          reveal_results?: Json | null
+          turn?: string
+          turn_count?: number
+          updated_at?: string
+          winner?: string | null
+          words?: string[]
+        }
+        Update: {
+          clue?: string | null
+          clue_number?: number | null
+          code?: string
+          created_at?: string
+          found_player1?: number[]
+          found_player2?: number[]
+          guesses?: number[]
+          hit_assassin?: boolean
+          id?: string
+          phase?: string
+          player1_id?: string | null
+          player1_map?: Json | null
+          player1_ready?: boolean
+          player2_id?: string | null
+          player2_map?: Json | null
+          player2_ready?: boolean
+          reveal_results?: Json | null
+          turn?: string
+          turn_count?: number
+          updated_at?: string
+          winner?: string | null
+          words?: string[]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

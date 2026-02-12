@@ -1,14 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, Send, Eye, EyeOff, Check, Users, Trophy, XCircle, BarChart3, Trash2 } from "lucide-react";
 import {
-  generatePlayerMap,
-  pickWords,
-  type PlayerMap,
-  type Player,
-  type Phase,
-  type CardRole,
-} from "@/lib/codenames";
+  RotateCcw, Send, Eye, EyeOff, Check, Users, Trophy, XCircle,
+  BarChart3, Trash2, Copy, LogIn, Plus,
+} from "lucide-react";
+import { useCodenamesGame, type Player, type CardRole } from "@/hooks/use-codenames-game";
 import { loadStats, recordGame, resetStats, type GameStats } from "@/lib/codenames-stats";
 
 const MAX_TURNS = 7;
@@ -30,144 +26,87 @@ const playerLabel: Record<Player, string> = {
   player2: "Player 2",
 };
 
-type GameState = "lobby" | "playing" | "finished";
-
-const initGame = () => ({
-  words: pickWords(),
-  maps: { player1: generatePlayerMap(), player2: generatePlayerMap() },
-  turn: "player1" as Player,
-  phase: "spymaster" as Phase,
-  clue: "",
-  clueNumber: 1,
-  guesses: [] as number[],
-  found: { player1: [] as number[], player2: [] as number[] },
-  hitAssassin: false,
-  revealResults: [] as { index: number; role: CardRole }[],
-  turnCount: 0,
-});
-
 const CodenamesSection = () => {
-  const [gameState, setGameState] = useState<GameState>("lobby");
-  const [ready, setReady] = useState({ player1: false, player2: false });
-  const [game, setGame] = useState(initGame);
+  const {
+    game, myRole, loading, error,
+    createGame, joinGame, ready, sendClue, submitGuesses, nextTurn, leaveGame,
+  } = useCodenamesGame();
+
+  const [joinCode, setJoinCode] = useState("");
   const [showMap, setShowMap] = useState(false);
+  const [clueText, setClueText] = useState("");
+  const [clueNum, setClueNum] = useState(1);
+  const [selectedGuesses, setSelectedGuesses] = useState<number[]>([]);
+  const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState<GameStats>(loadStats);
   const [showStats, setShowStats] = useState(false);
+  const [prevWinner, setPrevWinner] = useState<string | null>(null);
 
-  useEffect(() => {
-    setStats(loadStats());
-  }, []);
+  // Track game end for stats
+  if (game?.phase === "finished" && game.winner && game.winner !== prevWinner) {
+    const won = game.winner === "won";
+    const updated = recordGame(won, game.turn_count);
+    setStats(updated);
+    setPrevWinner(game.winner);
+  }
 
-  const spymaster = game.turn;
-  const guesser: Player = game.turn === "player1" ? "player2" : "player1";
-  const guesserMap = game.maps[guesser];
-  const spymasterMap = game.maps[spymaster];
+  const copyCode = () => {
+    if (!game) return;
+    navigator.clipboard.writeText(game.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  const totalToFind = (p: Player) => game.maps[p].agentCount;
-  const foundCount = (p: Player) => game.found[p].length;
+  const handleSendClue = async () => {
+    if (!clueText.trim()) return;
+    await sendClue(clueText, clueNum);
+    setClueText("");
+    setClueNum(1);
+  };
 
-  const allFound =
-    foundCount("player1") >= totalToFind("player1") &&
-    foundCount("player2") >= totalToFind("player2");
-
-  const outOfTurns = game.turnCount >= MAX_TURNS && !allFound && !game.hitAssassin;
-
-  const toggleReady = (p: Player) => {
-    setReady((prev) => {
-      const next = { ...prev, [p]: !prev[p] };
-      if (next.player1 && next.player2) {
-        setTimeout(() => {
-          setGame(initGame());
-          setGameState("playing");
-        }, 400);
-      }
-      return next;
-    });
+  const handleSubmitGuesses = async () => {
+    if (selectedGuesses.length === 0) return;
+    await submitGuesses(selectedGuesses);
+    setSelectedGuesses([]);
   };
 
   const toggleGuess = (i: number) => {
-    if (game.phase !== "guessing") return;
-    if (game.found.player1.includes(i) || game.found.player2.includes(i)) return;
-    setGame((prev) => {
-      const guesses = prev.guesses.includes(i)
-        ? prev.guesses.filter((g) => g !== i)
-        : [...prev.guesses, i];
-      return { ...prev, guesses };
-    });
+    setSelectedGuesses((prev) =>
+      prev.includes(i) ? prev.filter((g) => g !== i) : [...prev, i]
+    );
   };
 
-  const submitClue = () => {
-    if (!game.clue.trim()) return;
-    setGame((prev) => ({ ...prev, phase: "guessing" }));
-  };
+  const handleResetStats = () => setStats(resetStats());
 
-  const submitGuesses = () => {
-    if (game.guesses.length === 0) return;
-    const results = game.guesses.map((i) => ({
-      index: i,
-      role: guesserMap.roles[i],
-    }));
-    const hitAssassin = results.some((r) => r.role === "assassin");
-    const newFound = { ...game.found };
-    results.forEach((r) => {
-      if (r.role === "agent" && !newFound[guesser].includes(r.index)) {
-        newFound[guesser] = [...newFound[guesser], r.index];
-      }
-    });
-
-    const newTurnCount = game.turnCount + 1;
-
-    setGame((prev) => ({
-      ...prev,
-      phase: "reveal",
-      revealResults: results,
-      found: newFound,
-      hitAssassin,
-      turnCount: newTurnCount,
-    }));
-
-    // Check end conditions after state update
-    const nowAllFound =
-      newFound.player1.length >= game.maps.player1.agentCount &&
-      newFound.player2.length >= game.maps.player2.agentCount;
-
-    if (hitAssassin || nowAllFound || newTurnCount >= MAX_TURNS) {
-      const won = nowAllFound && !hitAssassin;
-      const updated = recordGame(won, newTurnCount);
-      setStats(updated);
-      setGameState("finished");
-    }
-  };
-
-  const nextTurn = () => {
-    setGame((prev) => ({
-      ...prev,
-      turn: prev.turn === "player1" ? "player2" : "player1",
-      phase: "spymaster",
-      clue: "",
-      clueNumber: 1,
-      guesses: [],
-      revealResults: [],
-    }));
+  const handleNewGame = () => {
+    leaveGame();
+    setPrevWinner(null);
     setShowMap(false);
+    setSelectedGuesses([]);
   };
 
-  const resetGame = () => {
-    setGame(initGame());
-    setShowMap(false);
-    setReady({ player1: false, player2: false });
-    setGameState("lobby");
-  };
+  // Derive game info
+  const isInGame = !!game && !!myRole;
+  const spymaster = game?.turn;
+  const guesser: Player | undefined = game?.turn === "player1" ? "player2" : "player1";
 
-  const handleResetStats = () => {
-    setStats(resetStats());
-  };
+  const myMap = myRole && game
+    ? myRole === "player1" ? game.player1_map : game.player2_map
+    : null;
+
+  const totalToFind = (p: Player) =>
+    game ? (p === "player1" ? game.player1_map?.agentCount ?? 0 : game.player2_map?.agentCount ?? 0) : 0;
+  const foundCount = (p: Player) =>
+    game ? (p === "player1" ? game.found_player1.length : game.found_player2.length) : 0;
 
   const isCardUsed = (i: number) =>
-    game.found.player1.includes(i) || game.found.player2.includes(i);
+    game ? game.found_player1.includes(i) || game.found_player2.includes(i) : false;
 
-  const isGameOver = gameState === "finished" || allFound || game.hitAssassin || outOfTurns;
-  const turnsRemaining = MAX_TURNS - game.turnCount;
+  const turnsRemaining = game ? MAX_TURNS - game.turn_count : MAX_TURNS;
+  const isGameOver = game?.phase === "finished";
+
+  const amSpymaster = isInGame && game?.phase === "spymaster" && myRole === spymaster;
+  const amGuesser = isInGame && game?.phase === "guessing" && myRole === guesser;
 
   return (
     <section className="px-6 py-24">
@@ -182,7 +121,7 @@ const CodenamesSection = () => {
           <h2 className="mb-2 font-serif text-3xl font-semibold text-foreground sm:text-4xl">
             Codenames Duet
           </h2>
-          <p className="text-muted-foreground">Side-by-side spy action 🕵️</p>
+          <p className="text-muted-foreground">Real-time spy action 🕵️</p>
           <div className="section-divider mt-4" />
         </motion.div>
 
@@ -220,9 +159,8 @@ const CodenamesSection = () => {
                     </motion.button>
                   )}
                 </div>
-
                 {stats.gamesPlayed === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No games played yet. Start your first game!</p>
+                  <p className="text-sm text-muted-foreground italic">No games played yet.</p>
                 ) : (
                   <>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -241,15 +179,12 @@ const CodenamesSection = () => {
                         </div>
                       ))}
                     </div>
-
                     {stats.gamesPlayed > 0 && (
                       <div className="mt-3 flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
                         <span>Win rate: {Math.round((stats.gamesWon / stats.gamesPlayed) * 100)}%</span>
                         <span>Avg turns: {(stats.totalTurns / stats.gamesPlayed).toFixed(1)}</span>
                       </div>
                     )}
-
-                    {/* Recent games */}
                     {stats.history.length > 0 && (
                       <div className="mt-3">
                         <p className="mb-2 text-xs font-medium text-muted-foreground">Recent Games</p>
@@ -258,9 +193,7 @@ const CodenamesSection = () => {
                             <div
                               key={i}
                               className={`flex h-7 w-7 items-center justify-center rounded-md text-[10px] font-bold ${
-                                h.won
-                                  ? "bg-primary/20 text-primary"
-                                  : "bg-muted text-muted-foreground"
+                                h.won ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
                               }`}
                               title={`${h.won ? "Won" : "Lost"} in ${h.turns} turns`}
                             >
@@ -277,312 +210,403 @@ const CodenamesSection = () => {
           )}
         </AnimatePresence>
 
-        {/* Lobby — ready up */}
-        {gameState === "lobby" && (
+        {/* Error display */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-center text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {/* No game - Create or Join */}
+        {!isInGame && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-6 rounded-xl border border-border bg-card p-6"
           >
-            <h3 className="mb-4 text-center font-serif text-lg font-semibold text-foreground">Ready Up</h3>
-            <div className="flex justify-center gap-4">
-              {(["player1", "player2"] as Player[]).map((p) => (
-                <motion.button
-                  key={p}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => toggleReady(p)}
-                  className={`flex flex-col items-center gap-2 rounded-xl border-2 px-6 py-4 transition-all duration-300 ${
-                    ready[p]
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background hover:border-primary/30"
-                  }`}
-                >
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-                      ready[p]
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {ready[p] ? <Check size={20} /> : <Users size={20} />}
-                  </div>
-                  <span className="text-sm font-medium text-foreground">{playerLabel[p]}</span>
-                  <span
-                    className={`text-xs font-medium ${
-                      ready[p] ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    {ready[p] ? "Ready!" : "Tap to ready"}
-                  </span>
-                </motion.button>
-              ))}
-            </div>
-            {ready.player1 && ready.player2 && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-4 text-center text-sm font-medium text-primary"
+            <h3 className="mb-5 text-center font-serif text-lg font-semibold text-foreground">
+              Start a Game
+            </h3>
+            <div className="flex flex-col items-center gap-4">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={createGame}
+                disabled={loading}
+                className="btn-yes gap-2 px-6 py-3 text-sm disabled:opacity-50"
               >
-                Starting game...
-              </motion.p>
-            )}
+                <Plus size={16} /> Create New Game
+              </motion.button>
+
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="h-px w-8 bg-border" />
+                or join with code
+                <div className="h-px w-8 bg-border" />
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="Enter code..."
+                  maxLength={6}
+                  className="w-32 rounded-xl border border-border bg-background px-3 py-2 text-center text-sm font-mono uppercase text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => joinGame(joinCode)}
+                  disabled={loading || joinCode.length < 4}
+                  className="btn-yes gap-1.5 px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  <LogIn size={14} /> Join
+                </motion.button>
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Active game */}
-        {gameState !== "lobby" && (
+        {/* In game */}
+        {isInGame && game && (
           <>
-            {/* Scoreboard + Turn Counter */}
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
-              {(["player1", "player2"] as Player[]).map((p) => (
-                <div
-                  key={p}
-                  className={`rounded-xl border px-5 py-3 text-center transition-colors ${
-                    game.turn === p && !isGameOver
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-card"
-                  }`}
-                >
-                  <p className="text-xs font-medium text-muted-foreground">{playerLabel[p]}</p>
-                  <p className="font-serif text-2xl font-bold text-foreground">
-                    {foundCount(p)}/{totalToFind(p)}
-                  </p>
-                </div>
-              ))}
-              <div
-                className={`rounded-xl border px-5 py-3 text-center ${
-                  turnsRemaining <= 2 && !isGameOver
-                    ? "border-destructive bg-destructive/10"
-                    : "border-border bg-card"
-                }`}
-              >
-                <p className="text-xs font-medium text-muted-foreground">Turns Left</p>
-                <p
-                  className={`font-serif text-2xl font-bold ${
-                    turnsRemaining <= 2 && !isGameOver ? "text-destructive" : "text-foreground"
-                  }`}
-                >
-                  {Math.max(0, turnsRemaining)}
-                </p>
+            {/* Game code + role badge */}
+            <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
+              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
+                <span className="text-xs text-muted-foreground">Code:</span>
+                <span className="font-mono text-sm font-bold uppercase text-foreground">{game.code}</span>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={copyCode}>
+                  <Copy size={12} className="text-muted-foreground" />
+                </motion.button>
+                {copied && <span className="text-[10px] text-primary">Copied!</span>}
               </div>
+              <div className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                You are {playerLabel[myRole!]}
+              </div>
+              {game.player2_id ? (
+                <div className="rounded-lg bg-green-500/10 px-3 py-1.5 text-xs font-medium text-green-600">
+                  2 Players Connected
+                </div>
+              ) : (
+                <div className="rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600">
+                  Waiting for Player 2…
+                </div>
+              )}
             </div>
 
-            {/* Game over states */}
-            {isGameOver && (
+            {/* Lobby — ready up */}
+            {game.phase === "lobby" && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-6 rounded-xl border border-border bg-card p-6 text-center"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 rounded-xl border border-border bg-card p-6"
               >
-                <p className="font-serif text-2xl font-bold text-foreground">
-                  {game.hitAssassin
-                    ? "💀 Assassin Hit! Game Over."
-                    : allFound
-                    ? `🎉 You found them all in ${game.turnCount} turns!`
-                    : "⏰ Out of turns! Game Over."}
-                </p>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={resetGame}
-                  className="btn-yes mt-4 gap-2 text-sm"
-                >
-                  <RotateCcw size={16} /> New Game
-                </motion.button>
+                <h3 className="mb-4 text-center font-serif text-lg font-semibold text-foreground">Ready Up</h3>
+                {!game.player2_id ? (
+                  <p className="text-center text-sm text-muted-foreground">
+                    Share the code <span className="font-mono font-bold uppercase text-foreground">{game.code}</span> with your partner
+                  </p>
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex justify-center gap-4">
+                      {(["player1", "player2"] as Player[]).map((p) => {
+                        const isReady = p === "player1" ? game.player1_ready : game.player2_ready;
+                        const isMe = myRole === p;
+                        return (
+                          <div
+                            key={p}
+                            className={`flex flex-col items-center gap-2 rounded-xl border-2 px-6 py-4 transition-all duration-300 ${
+                              isReady
+                                ? "border-primary bg-primary/10"
+                                : "border-border bg-background"
+                            }`}
+                          >
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                              isReady ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {isReady ? <Check size={20} /> : <Users size={20} />}
+                            </div>
+                            <span className="text-sm font-medium text-foreground">
+                              {playerLabel[p]} {isMe && "(You)"}
+                            </span>
+                            <span className={`text-xs font-medium ${isReady ? "text-primary" : "text-muted-foreground"}`}>
+                              {isReady ? "Ready!" : isMe ? "Tap below" : "Waiting…"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {!(myRole === "player1" ? game.player1_ready : game.player2_ready) && (
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={ready}
+                        className="btn-yes gap-2 px-6 py-2 text-sm"
+                      >
+                        <Check size={16} /> I'm Ready
+                      </motion.button>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
 
-            {/* Turn controls */}
-            {!isGameOver && (
-              <div className="mb-6 space-y-4">
-                <div className="rounded-xl border border-border bg-card p-4">
-                  {game.phase === "spymaster" && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-foreground">
-                          <span className="text-primary">{playerLabel[spymaster]}</span> — give a clue
-                        </p>
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setShowMap((v) => !v)}
-                          className="btn-valentine border border-border gap-1.5 px-3 py-1.5 text-xs text-foreground"
-                        >
-                          {showMap ? <EyeOff size={14} /> : <Eye size={14} />}
-                          {showMap ? "Hide" : "View"} Your Map
-                        </motion.button>
-                      </div>
+            {/* Active game */}
+            {game.phase !== "lobby" && (
+              <>
+                {/* Scoreboard */}
+                <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
+                  {(["player1", "player2"] as Player[]).map((p) => (
+                    <div
+                      key={p}
+                      className={`rounded-xl border px-5 py-3 text-center transition-colors ${
+                        game.turn === p && !isGameOver
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-card"
+                      }`}
+                    >
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {playerLabel[p]} {myRole === p && "(You)"}
+                      </p>
+                      <p className="font-serif text-2xl font-bold text-foreground">
+                        {foundCount(p)}/{totalToFind(p)}
+                      </p>
+                    </div>
+                  ))}
+                  <div className={`rounded-xl border px-5 py-3 text-center ${
+                    turnsRemaining <= 2 && !isGameOver
+                      ? "border-destructive bg-destructive/10"
+                      : "border-border bg-card"
+                  }`}>
+                    <p className="text-xs font-medium text-muted-foreground">Turns Left</p>
+                    <p className={`font-serif text-2xl font-bold ${
+                      turnsRemaining <= 2 && !isGameOver ? "text-destructive" : "text-foreground"
+                    }`}>
+                      {Math.max(0, turnsRemaining)}
+                    </p>
+                  </div>
+                </div>
 
-                      {showMap && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          className="space-y-2"
-                        >
-                          <div className="flex gap-3 text-xs font-medium">
-                            {(["agent", "assassin", "neutral"] as CardRole[]).map((type) => (
-                              <span key={type} className="flex items-center gap-1.5">
-                                <span className={`inline-block h-3 w-3 rounded-sm ${roleColors[type]}`} />
-                                {roleLabels[type]}
+                {/* Game over */}
+                {isGameOver && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="mb-6 rounded-xl border border-border bg-card p-6 text-center"
+                  >
+                    <p className="font-serif text-2xl font-bold text-foreground">
+                      {game.hit_assassin
+                        ? "💀 Assassin Hit! Game Over."
+                        : game.winner === "won"
+                        ? `🎉 You found them all in ${game.turn_count} turns!`
+                        : "⏰ Out of turns! Game Over."}
+                    </p>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleNewGame}
+                      className="btn-yes mt-4 gap-2 text-sm"
+                    >
+                      <RotateCcw size={16} /> New Game
+                    </motion.button>
+                  </motion.div>
+                )}
+
+                {/* Turn controls */}
+                {!isGameOver && (
+                  <div className="mb-6 space-y-4">
+                    <div className="rounded-xl border border-border bg-card p-4">
+                      {/* Spymaster phase */}
+                      {game.phase === "spymaster" && (
+                        <div className="space-y-3">
+                          {amSpymaster ? (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-foreground">
+                                  Your turn — give a clue
+                                </p>
+                                <motion.button
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setShowMap((v) => !v)}
+                                  className="btn-valentine border border-border gap-1.5 px-3 py-1.5 text-xs text-foreground"
+                                >
+                                  {showMap ? <EyeOff size={14} /> : <Eye size={14} />}
+                                  {showMap ? "Hide" : "View"} Your Map
+                                </motion.button>
+                              </div>
+
+                              {showMap && myMap && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  className="space-y-2"
+                                >
+                                  <div className="flex gap-3 text-xs font-medium">
+                                    {(["agent", "assassin", "neutral"] as CardRole[]).map((type) => (
+                                      <span key={type} className="flex items-center gap-1.5">
+                                        <span className={`inline-block h-3 w-3 rounded-sm ${roleColors[type]}`} />
+                                        {roleLabels[type]}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div className="grid grid-cols-5 gap-1.5">
+                                    {game.words.map((word, i) => (
+                                      <div
+                                        key={i}
+                                        className={`rounded-lg p-1.5 text-center text-[10px] font-medium sm:text-xs ${
+                                          roleColors[myMap.roles[i]]
+                                        } ${isCardUsed(i) ? "opacity-30" : ""}`}
+                                      >
+                                        {word}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={clueText}
+                                  onChange={(e) => setClueText(e.target.value)}
+                                  placeholder="Clue word..."
+                                  className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                                <select
+                                  value={clueNum}
+                                  onChange={(e) => setClueNum(Number(e.target.value))}
+                                  className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                >
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <option key={n} value={n}>{n}</option>
+                                  ))}
+                                </select>
+                                <motion.button
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={handleSendClue}
+                                  disabled={!clueText.trim()}
+                                  className="btn-yes gap-1.5 px-4 py-2 text-sm disabled:opacity-40"
+                                >
+                                  <Send size={14} /> Send
+                                </motion.button>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-center text-sm text-muted-foreground">
+                              Waiting for <span className="text-primary font-medium">{playerLabel[spymaster!]}</span> to give a clue…
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Guessing phase */}
+                      {game.phase === "guessing" && (
+                        <div className="space-y-3">
+                          <p className="text-sm text-foreground">
+                            Clue: <span className="font-bold text-primary">"{game.clue}" ({game.clue_number})</span>
+                          </p>
+                          {amGuesser ? (
+                            <>
+                              <p className="text-xs text-muted-foreground">
+                                Tap cards to select your guesses, then submit.
+                              </p>
+                              <motion.button
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleSubmitGuesses}
+                                disabled={selectedGuesses.length === 0}
+                                className="btn-yes gap-1.5 text-sm disabled:opacity-40"
+                              >
+                                <Check size={14} /> Submit {selectedGuesses.length} guess
+                                {selectedGuesses.length !== 1 ? "es" : ""}
+                              </motion.button>
+                            </>
+                          ) : (
+                            <p className="text-center text-xs text-muted-foreground">
+                              Waiting for <span className="text-primary font-medium">{playerLabel[guesser!]}</span> to guess…
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Reveal phase */}
+                      {game.phase === "reveal" && (
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium text-foreground">Results:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {game.reveal_results.map((r) => (
+                              <span
+                                key={r.index}
+                                className={`rounded-lg px-3 py-1 text-xs font-medium ${roleColors[r.role]}`}
+                              >
+                                {game.words[r.index]} — {roleLabels[r.role]}
                               </span>
                             ))}
                           </div>
-                          <div className="grid grid-cols-5 gap-1.5">
-                            {game.words.map((word, i) => (
-                              <div
-                                key={i}
-                                className={`rounded-lg p-1.5 text-center text-[10px] font-medium sm:text-xs ${
-                                  roleColors[spymasterMap.roles[i]]
-                                } ${isCardUsed(i) ? "opacity-30" : ""}`}
-                              >
-                                {word}
-                              </div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={game.clue}
-                          onChange={(e) =>
-                            setGame((prev) => ({ ...prev, clue: e.target.value }))
-                          }
-                          placeholder="Clue word..."
-                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                        <select
-                          value={game.clueNumber}
-                          onChange={(e) =>
-                            setGame((prev) => ({
-                              ...prev,
-                              clueNumber: Number(e.target.value),
-                            }))
-                          }
-                          className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        >
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
-                          onClick={submitClue}
-                          disabled={!game.clue.trim()}
-                          className="btn-yes gap-1.5 px-4 py-2 text-sm disabled:opacity-40"
-                        >
-                          <Send size={14} /> Send
-                        </motion.button>
-                      </div>
-                    </div>
-                  )}
-
-                  {game.phase === "guessing" && (
-                    <div className="space-y-3">
-                      <p className="text-sm text-foreground">
-                        <span className="text-primary">{playerLabel[guesser]}</span> — guess for clue:{" "}
-                        <span className="font-bold">
-                          "{game.clue}" ({game.clueNumber})
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Tap cards to select your guesses, then submit.
-                      </p>
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={submitGuesses}
-                        disabled={game.guesses.length === 0}
-                        className="btn-yes gap-1.5 text-sm disabled:opacity-40"
-                      >
-                        <Check size={14} /> Submit {game.guesses.length} guess
-                        {game.guesses.length !== 1 ? "es" : ""}
-                      </motion.button>
-                    </div>
-                  )}
-
-                  {game.phase === "reveal" && (
-                    <div className="space-y-3">
-                      <p className="text-sm font-medium text-foreground">Results:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {game.revealResults.map((r) => (
-                          <span
-                            key={r.index}
-                            className={`rounded-lg px-3 py-1 text-xs font-medium ${roleColors[r.role]}`}
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => { nextTurn(); setShowMap(false); }}
+                            className="btn-yes gap-1.5 text-sm"
                           >
-                            {game.words[r.index]} — {roleLabels[r.role]}
-                          </span>
-                        ))}
-                      </div>
-                      {!game.hitAssassin && !outOfTurns && (
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
-                          onClick={nextTurn}
-                          className="btn-yes gap-1.5 text-sm"
-                        >
-                          Next Turn →
-                        </motion.button>
+                            Next Turn →
+                          </motion.button>
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {/* Grid */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="grid grid-cols-5 gap-2 sm:gap-3"
-            >
-              {game.words.map((word, i) => {
-                const used = isCardUsed(i);
-                const selected = game.guesses.includes(i);
-                const isGuessing = game.phase === "guessing";
+                {/* Grid */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="grid grid-cols-5 gap-2 sm:gap-3"
+                >
+                  {game.words.map((word, i) => {
+                    const used = isCardUsed(i);
+                    const selected = selectedGuesses.includes(i);
+                    const canSelect = amGuesser && !used;
 
-                return (
+                    return (
+                      <motion.button
+                        key={`${word}-${i}`}
+                        whileHover={canSelect ? { scale: 1.04 } : {}}
+                        whileTap={canSelect ? { scale: 0.96 } : {}}
+                        onClick={() => canSelect && toggleGuess(i)}
+                        disabled={!canSelect}
+                        className={`
+                          relative flex items-center justify-center rounded-xl p-2 text-center font-sans text-xs font-medium transition-all duration-200 sm:p-3 sm:text-sm
+                          aspect-square sm:aspect-[4/3]
+                          ${
+                            used
+                              ? "bg-primary/20 text-primary/50 line-through cursor-default"
+                              : selected
+                              ? "bg-accent text-accent-foreground ring-2 ring-accent"
+                              : "bg-card text-card-foreground border border-border"
+                          }
+                          ${canSelect ? "hover:border-primary/40 cursor-pointer" : ""}
+                        `}
+                      >
+                        {word}
+                        {selected && (
+                          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] text-accent-foreground">
+                            ✓
+                          </span>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+
+                {/* Leave game */}
+                <div className="mt-6 flex justify-center">
                   <motion.button
-                    key={`${word}-${i}`}
-                    whileHover={!used ? { scale: 1.04 } : {}}
-                    whileTap={!used ? { scale: 0.96 } : {}}
-                    onClick={() => isGuessing && toggleGuess(i)}
-                    disabled={used || !isGuessing}
-                    className={`
-                      relative flex items-center justify-center rounded-xl p-2 text-center font-sans text-xs font-medium transition-all duration-200 sm:p-3 sm:text-sm
-                      aspect-square sm:aspect-[4/3]
-                      ${
-                        used
-                          ? "bg-primary/20 text-primary/50 line-through cursor-default"
-                          : selected
-                          ? "bg-accent text-accent-foreground ring-2 ring-accent"
-                          : "bg-card text-card-foreground border border-border"
-                      }
-                      ${isGuessing && !used ? "hover:border-primary/40 cursor-pointer" : ""}
-                    `}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleNewGame}
+                    className="btn-valentine border border-border gap-2 text-sm text-foreground"
                   >
-                    {word}
-                    {selected && (
-                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] text-accent-foreground">
-                        ✓
-                      </span>
-                    )}
+                    <RotateCcw size={16} /> Leave Game
                   </motion.button>
-                );
-              })}
-            </motion.div>
-
-            {/* Reset */}
-            <div className="mt-6 flex justify-center">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={resetGame}
-                className="btn-valentine border border-border gap-2 text-sm text-foreground"
-              >
-                <RotateCcw size={16} /> New Game
-              </motion.button>
-            </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
