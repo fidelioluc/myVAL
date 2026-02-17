@@ -33,6 +33,7 @@ const CodenamesSection = () => {
   } = useCodenamesGame();
 
   const [joinCode, setJoinCode] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("random");
   const [showMap, setShowMap] = useState(false);
   const [clueText, setClueText] = useState("");
   const [clueNum, setClueNum] = useState(1);
@@ -228,9 +229,41 @@ const CodenamesSection = () => {
               Start a Game
             </h3>
             <div className="flex flex-col items-center gap-4">
+              {/* Category selection */}
+              <div className="w-full max-w-xs space-y-2">
+                <p className="text-center text-xs font-medium text-muted-foreground">Wort-Kategorie wählen</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: "random", label: "🎲 Zufällig (Alle)" },
+                    { key: "abenteuer", label: "⚔️ Abenteuer" },
+                    { key: "tiere", label: "🐾 Tiere & Natur" },
+                    { key: "essen", label: "🍕 Essen & Trinken" },
+                    { key: "technik", label: "🔬 Technik" },
+                    { key: "sport", label: "⚽ Sport & Spiel" },
+                    { key: "geschichte", label: "🏛️ Geschichte" },
+                    { key: "alltag", label: "🏠 Alltag & Beruf" },
+                    { key: "geografie", label: "🌍 Geografie" },
+                    { key: "musik", label: "🎵 Musik & Kunst" },
+                  ].map((cat) => (
+                    <motion.button
+                      key={cat.key}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSelectedCategory(cat.key)}
+                      className={`rounded-xl border px-3 py-2 text-xs font-medium transition-all ${
+                        selectedCategory === cat.key
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {cat.label}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={createGame}
+                onClick={() => createGame(selectedCategory)}
                 disabled={loading}
                 className="btn-yes gap-2 px-6 py-3 text-sm disabled:opacity-50"
               >
