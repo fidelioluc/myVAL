@@ -1,14 +1,27 @@
-export const COOL_WORDS = [
-  "Shadow", "Vortex", "Cipher", "Phantom", "Nebula",
-  "Raven", "Glacier", "Thunder", "Mirage", "Obsidian",
-  "Blaze", "Specter", "Titan", "Eclipse", "Nomad",
-  "Falcon", "Apex", "Drift", "Onyx", "Havoc",
-  "Wraith", "Zenith", "Pulse", "Ember", "Frostbite",
-  "Venom", "Horizon", "Tempest", "Cobalt", "Abyss",
-  "Crimson", "Dagger", "Lynx", "Prism", "Volt",
-  "Stealth", "Cascade", "Raptor", "Sable", "Flux",
-  "Mercury", "Prowl", "Inferno", "Quartz", "Surge",
-  "Bandit", "Oracle", "Magnet", "Recon", "Neon",
+export const CODENAMES_WORDS_DE = [
+  "Schatten", "Wirbel", "Chiffre", "Phantom", "Nebel", "Rabe", "Gletscher", "Donner", "Illusion", "Obsidian",
+  "Flamme", "Gespenst", "Titan", "Finsternis", "Nomade", "Falke", "Gipfel", "Drift", "Onyx", "Chaos",
+  "Geist", "Zenit", "Puls", "Glut", "Frost", "Gift", "Horizont", "Sturm", "Kobalt", "Abgrund",
+  "Purpur", "Dolch", "Luchs", "Prisma", "Blitz", "Tarnung", "Kaskade", "Raptor", "Zobel", "Strom",
+  "Quecksilber", "Pirsch", "Inferno", "Quarz", "Woge", "Bandit", "Orakel", "Magnet", "Späher", "Neon",
+  "Anker", "Axt", "Batterie", "Bär", "Bogen", "Brille", "Burg", "Dampf", "Diamant", "Drache",
+  "Echo", "Eis", "Eisen", "Engel", "Erde", "Faden", "Falle", "Fass", "Feder", "Fels",
+  "Feuer", "Figur", "Film", "Fisch", "Flasche", "Fliege", "Fluss", "Flügel", "Form", "Fort",
+  "Funke", "Gabel", "Garten", "Gas", "Gehirn", "Glocke", "Gold", "Grab", "Graphit", "Grenze",
+  "Hafen", "Hahn", "Hammer", "Hand", "Harz", "Helm", "Herz", "Hexe", "Honig", "Horn",
+  "Hund", "Insel", "Jäger", "Kaffee", "Kahn", "Kaiser", "Kamera", "Kamm", "Kanal", "Kante",
+  "Kapitän", "Karte", "Kasten", "Katze", "Kegel", "Kern", "Kette", "Kiefer", "Klaue", "Klee",
+  "Klippe", "Knoten", "Knopf", "Koffer", "Kohle", "Komet", "Kompass", "König", "Kopf", "Korb",
+  "Kran", "Kranich", "Krieger", "Krone", "Kugel", "Labor", "Labyrinth", "Lachs", "Lampe", "Laser",
+  "Lasso", "Laub", "Lawine", "Leine", "Löwe", "Löffel", "Luft", "Lupe", "Maske", "Mast",
+  "Mauer", "Maus", "Meißel", "Messer", "Mine", "Mond", "Moos", "Motor", "Münze", "Nadel",
+  "Nagel", "Netz", "Nuss", "Ozean", "Panther", "Panzer", "Papier", "Pfeil", "Pferd", "Pflanze",
+  "Pilot", "Pirat", "Pistole", "Platin", "Post", "Prinz", "Pulver", "Rad", "Rakete", "Rauch",
+  "Reifen", "Reiter", "Ring", "Ritter", "Roboter", "Rohr", "Rose", "Rost", "Rubin", "Säge",
+  "Salz", "Sand", "Sattel", "Säule", "Schiff", "Schild", "Schloss", "Schlüssel", "Schnabel", "Schnee",
+  "Schwert", "Siegel", "Silber", "Smaragd", "Sonne", "Spiegel", "Spinne", "Spur", "Stahl", "Staub",
+  "Stein", "Stern", "Stock", "Strahlen", "Sumpf", "Tafel", "Turm", "Ufer", "Uhr", "Vulkan",
+  "Wald", "Wand", "Wasser", "Würfel", "Wüste", "Zahn", "Zaun", "Zelt", "Ziegel", "Zirkel"
 ];
 
 export type CardRole = "agent" | "assassin" | "neutral";
@@ -38,7 +51,7 @@ export const generatePlayerMap = (): PlayerMap => {
 };
 
 export const pickWords = (): string[] => {
-  const shuffled = [...COOL_WORDS];
+  const shuffled = [...CODENAMES_WORDS_DE];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];

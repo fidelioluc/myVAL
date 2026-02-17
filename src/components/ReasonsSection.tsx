@@ -3,21 +3,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Sparkles } from "lucide-react";
 
 const reasons = [
-  "Because your laugh is my favorite sound in the entire world.",
-  "Because you make even the most ordinary moments feel magical.",
-  "Because you believe in me even when I don't believe in myself.",
-  "Because waking up next to you is the best part of every day.",
-  "Because you're the first person I want to tell good news to.",
-  "Because your hugs feel like coming home.",
-  "Because you make me want to be a better person.",
-  "Because life with you is the greatest adventure I could ever imagine.",
-  "Because you see the good in everyone, especially me.",
-  "Because you're the calm in my chaos.",
-  "Because every love song suddenly makes sense with you.",
-  "Because I fall in love with you a little more every single day.",
-  "Because no one else could ever compare to you.",
-  "Because you're my best friend and my whole heart.",
-  "Because even silence is comfortable when I'm with you.",
+  "Ich liebe es mit dir zu lachen und zu kabbeln.",
+  "Wenn du an mich glaubst ist alles okay danke dafür.",
+  "Ich habe immer das Gefühl das wir zusammen alles schaffen können.",
+  "Selbst die alltäglichen Dinge machen mit dir Spaß weil du mir immer lebensfreude gibst.",
+  "Ich bin so stolz auf dich und wie du dich in unserer Beziehung immer weiterentwickelst und an dir arbeitest.",
+  "Du bist so loyal und zuverlässig wie ein Löwe und ich bewundere das an dir.",
+  "Wenn du mich anlächelst fühle ich mich wie der glücklichste Mensch auf Erden.",
+  "Du bist mein Leuchtturm im Sturm ;)",
+  "Ich weiß das du immer an mich denkst und das gibt mir so viel Kraft.",
+  "Ich liebe es wie du mich immer zum Lachen bringst auch wenn ich mal schlecht drauf bin.",
+  "Du hast den besten Bunda im Gym.",
+  "Ich liebe dich so sehr weil wir das beste Team bei Wer Stielt mir die Show sind. Kopenhagen Open Champions 2026.",
+  "Weil ich dich einfach so sehr liebe !!!!! Guck so dolle 3> 3> 3> 3> 3> 3> !!!!!!!",
+  "Ich liebe es an dir das du beim Essen machen so kreative bist und so viele leckere Sachen für mich zauberst."
 ];
 
 const ReasonsSection = () => {
@@ -42,7 +41,7 @@ const ReasonsSection = () => {
         >
           <Sparkles className="mx-auto mb-4 text-gold" size={28} />
           <h2 className="mb-2 font-serif text-3xl font-semibold text-foreground sm:text-4xl">
-            For when you need a reminder...
+            For when you need a reminder how much I love you ...
           </h2>
           <div className="section-divider mt-4 mb-10" />
         </motion.div>
