@@ -384,6 +384,54 @@ const CodenamesSection = () => {
                   </div>
                 </div>
 
+                {/* Your map — always visible */}
+                {myMap && (
+                  <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-foreground">Your Map (words you need your partner to find)</p>
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowMap((v) => !v)}
+                        className="btn-valentine border border-border gap-1.5 px-3 py-1.5 text-xs text-foreground"
+                      >
+                        {showMap ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {showMap ? "Hide" : "Show"}
+                      </motion.button>
+                    </div>
+                    <AnimatePresence>
+                      {showMap && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="space-y-2 overflow-hidden"
+                        >
+                          <div className="flex gap-3 text-xs font-medium">
+                            {(["agent", "assassin", "neutral"] as CardRole[]).map((type) => (
+                              <span key={type} className="flex items-center gap-1.5">
+                                <span className={`inline-block h-3 w-3 rounded-sm ${roleColors[type]}`} />
+                                {roleLabels[type]}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {game.words.map((word, i) => (
+                              <div
+                                key={i}
+                                className={`rounded-lg p-1.5 text-center text-[10px] font-medium sm:text-xs ${
+                                  roleColors[myMap.roles[i]]
+                                } ${isCardUsed(i) ? "opacity-30" : ""}`}
+                              >
+                                {word}
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
                 {/* Game over */}
                 {isGameOver && (
                   <motion.div
@@ -417,49 +465,9 @@ const CodenamesSection = () => {
                         <div className="space-y-3">
                           {amSpymaster ? (
                             <>
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-foreground">
-                                  Your turn — give a clue
-                                </p>
-                                <motion.button
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => setShowMap((v) => !v)}
-                                  className="btn-valentine border border-border gap-1.5 px-3 py-1.5 text-xs text-foreground"
-                                >
-                                  {showMap ? <EyeOff size={14} /> : <Eye size={14} />}
-                                  {showMap ? "Hide" : "View"} Your Map
-                                </motion.button>
-                              </div>
-
-                              {showMap && myMap && (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: "auto" }}
-                                  className="space-y-2"
-                                >
-                                  <div className="flex gap-3 text-xs font-medium">
-                                    {(["agent", "assassin", "neutral"] as CardRole[]).map((type) => (
-                                      <span key={type} className="flex items-center gap-1.5">
-                                        <span className={`inline-block h-3 w-3 rounded-sm ${roleColors[type]}`} />
-                                        {roleLabels[type]}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <div className="grid grid-cols-5 gap-1.5">
-                                    {game.words.map((word, i) => (
-                                      <div
-                                        key={i}
-                                        className={`rounded-lg p-1.5 text-center text-[10px] font-medium sm:text-xs ${
-                                          roleColors[myMap.roles[i]]
-                                        } ${isCardUsed(i) ? "opacity-30" : ""}`}
-                                      >
-                                        {word}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </motion.div>
-                              )}
-
+                              <p className="text-sm font-medium text-foreground">
+                                Your turn — give a clue
+                              </p>
                               <div className="flex gap-2">
                                 <input
                                   type="text"
@@ -540,7 +548,7 @@ const CodenamesSection = () => {
                           </div>
                           <motion.button
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => { nextTurn(); setShowMap(false); }}
+                            onClick={() => { nextTurn(); }}
                             className="btn-yes gap-1.5 text-sm"
                           >
                             Next Turn →
@@ -550,7 +558,6 @@ const CodenamesSection = () => {
                     </div>
                   </div>
                 )}
-
                 {/* Grid */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}

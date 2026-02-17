@@ -194,17 +194,19 @@ Deno.serve(async (req) => {
         if (g < 0 || g > 24) throw new Error(`Invalid card index ${g}`);
       }
 
-      const guesserMap = guesserRole === "player1" ? game.player1_map : game.player2_map;
-      const results = guesses.map((i: number) => ({ index: i, role: guesserMap.roles[i] }));
+      // In Codenames Duet, guesser guesses on the SPYMASTER's map
+      const spymasterMap = game.turn === "player1" ? game.player1_map : game.player2_map;
+      const results = guesses.map((i: number) => ({ index: i, role: spymasterMap.roles[i] }));
 
       const hitAssassin = results.some((r: { role: string }) => r.role === "assassin");
       const newFoundP1 = [...(game.found_player1 || [])];
       const newFoundP2 = [...(game.found_player2 || [])];
 
+      // Track found agents on the spymaster's map (game.turn)
       results.forEach((r: { index: number; role: string }) => {
         if (r.role === "agent") {
-          if (guesserRole === "player1" && !newFoundP1.includes(r.index)) newFoundP1.push(r.index);
-          if (guesserRole === "player2" && !newFoundP2.includes(r.index)) newFoundP2.push(r.index);
+          if (game.turn === "player1" && !newFoundP1.includes(r.index)) newFoundP1.push(r.index);
+          if (game.turn === "player2" && !newFoundP2.includes(r.index)) newFoundP2.push(r.index);
         }
       });
 
