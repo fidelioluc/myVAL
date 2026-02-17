@@ -82,11 +82,11 @@ export function useCodenamesGame() {
     return () => { supabase.removeChannel(channel); };
   }, [game?.id, playerId]);
 
-  const createGame = useCallback(async () => {
+  const createGame = useCallback(async (category: string = "random") => {
     setLoading(true);
     setError(null);
     try {
-      const data = await callAction({ action: "create", playerId });
+      const data = await callAction({ action: "create", playerId, category });
       setGame(data);
     } catch (e: any) {
       setError(e.message);
