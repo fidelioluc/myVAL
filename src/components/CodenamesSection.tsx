@@ -2,12 +2,14 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCcw, Send, Eye, EyeOff, Check, Users, Trophy, XCircle,
-  BarChart3, Trash2, Copy, LogIn, Plus,
+  BarChart3, Trash2, Copy, LogIn, Plus, Target,
 } from "lucide-react";
 import { useCodenamesGame, type Player, type CardRole } from "@/hooks/use-codenames-game";
 import { loadStats, recordGame, resetStats, type GameStats } from "@/lib/codenames-stats";
 
 const MAX_TURNS = 7;
+const AGENT_COUNT = 8;
+
 
 const roleColors: Record<CardRole, string> = {
   neutral: "bg-secondary text-secondary-foreground",
@@ -33,7 +35,7 @@ const CodenamesSection = () => {
   } = useCodenamesGame();
 
   const [joinCode, setJoinCode] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("random");
+
   const [showMap, setShowMap] = useState(false);
   const [clueText, setClueText] = useState("");
   const [clueNum, setClueNum] = useState(1);
@@ -95,10 +97,16 @@ const CodenamesSection = () => {
     ? myRole === "player1" ? game.player1_map : game.player2_map
     : null;
 
-  const totalToFind = (p: Player) =>
-    game ? (p === "player1" ? game.player1_map?.agentCount ?? 0 : game.player2_map?.agentCount ?? 0) : 0;
   const foundCount = (p: Player) =>
     game ? (p === "player1" ? game.found_player1.length : game.found_player2.length) : 0;
+
+  // My remaining = agents on MY map not yet found by partner (found_player2 tracks what was found on player1's map and vice versa)
+  const myFoundCount = myRole ? foundCount(myRole === "player1" ? "player2" : "player1") : 0;
+  const myRemaining = AGENT_COUNT - myFoundCount;
+
+  const p1Remaining = AGENT_COUNT - foundCount("player2"); // found_player2 = found on p1's map
+  const p2Remaining = AGENT_COUNT - foundCount("player1"); // found_player1 = found on p2's map
+  const totalRemaining = p1Remaining + p2Remaining;
 
   const isCardUsed = (i: number) =>
     game ? game.found_player1.includes(i) || game.found_player2.includes(i) : false;
@@ -229,45 +237,16 @@ const CodenamesSection = () => {
               Start a Game
             </h3>
             <div className="flex flex-col items-center gap-4">
-              {/* Category selection */}
-              <div className="w-full max-w-xs space-y-2">
-                <p className="text-center text-xs font-medium text-muted-foreground">Wort-Kategorie wählen</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { key: "random", label: "🎲 Zufällig (Alle)" },
-                    { key: "abenteuer", label: "⚔️ Abenteuer" },
-                    { key: "tiere", label: "🐾 Tiere & Natur" },
-                    { key: "essen", label: "🍕 Essen & Trinken" },
-                    { key: "technik", label: "🔬 Technik" },
-                    { key: "sport", label: "⚽ Sport & Spiel" },
-                    { key: "geschichte", label: "🏛️ Geschichte" },
-                    { key: "alltag", label: "🏠 Alltag & Beruf" },
-                    { key: "geografie", label: "🌍 Geografie" },
-                    { key: "musik", label: "🎵 Musik & Kunst" },
-                  ].map((cat) => (
-                    <motion.button
-                      key={cat.key}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setSelectedCategory(cat.key)}
-                      className={`rounded-xl border px-3 py-2 text-xs font-medium transition-all ${
-                        selectedCategory === cat.key
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-background text-foreground hover:border-primary/40"
-                      }`}
-                    >
-                      {cat.label}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-
+              <p className="text-sm text-muted-foreground text-center">
+                25 zufällige Alltagswörter · 8 Agenten pro Spieler · 3 Attentäter
+              </p>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => createGame(selectedCategory)}
+                onClick={() => createGame()}
                 disabled={loading}
                 className="btn-yes gap-2 px-6 py-3 text-sm disabled:opacity-50"
               >
-                <Plus size={16} /> Create New Game
+                <Plus size={16} /> Neues Spiel erstellen
               </motion.button>
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -384,38 +363,72 @@ const CodenamesSection = () => {
             {/* Active game */}
             {game.phase !== "lobby" && (
               <>
-                {/* Scoreboard */}
-                <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
-                  {(["player1", "player2"] as Player[]).map((p) => (
-                    <div
-                      key={p}
-                      className={`rounded-xl border px-5 py-3 text-center transition-colors ${
-                        game.turn === p && !isGameOver
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-card"
-                      }`}
-                    >
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {playerLabel[p]} {myRole === p && "(You)"}
+                {/* Progress counter - always visible */}
+                <div className="mb-5 rounded-xl border border-border bg-card p-4 space-y-3">
+                  {/* Total remaining */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target size={15} className="text-primary" />
+                      <span className="text-sm font-semibold text-foreground">Noch zu finden</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-bold ${
+                      totalRemaining <= 4 ? "bg-primary/15 text-primary" : "bg-secondary text-foreground"
+                    }`}>
+                      {totalRemaining} / {AGENT_COUNT * 2}
+                    </div>
+                  </div>
+
+                  {/* Progress bar total */}
+                  <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full bg-primary"
+                      initial={false}
+                      animate={{ width: `${((AGENT_COUNT * 2 - totalRemaining) / (AGENT_COUNT * 2)) * 100}%` }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                    />
+                  </div>
+
+                  {/* Per-player breakdown */}
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Meine {myRole === "player1" ? "Wörter" : "Wörter"}
                       </p>
-                      <p className="font-serif text-2xl font-bold text-foreground">
-                        {foundCount(p)}/{totalToFind(p)}
+                      <p className="font-serif text-lg font-bold text-foreground">
+                        {myRemaining}<span className="text-xs text-muted-foreground font-normal">/{AGENT_COUNT}</span>
                       </p>
                     </div>
-                  ))}
-                  <div className={`rounded-xl border px-5 py-3 text-center ${
-                    turnsRemaining <= 2 && !isGameOver
-                      ? "border-destructive bg-destructive/10"
-                      : "border-border bg-card"
-                  }`}>
-                    <p className="text-xs font-medium text-muted-foreground">Turns Left</p>
-                    <p className={`font-serif text-2xl font-bold ${
-                      turnsRemaining <= 2 && !isGameOver ? "text-destructive" : "text-foreground"
+                    <div className={`rounded-lg px-3 py-2 text-center ${
+                      turnsRemaining <= 2 && !isGameOver ? "bg-destructive/15" : "bg-secondary/50"
                     }`}>
-                      {Math.max(0, turnsRemaining)}
-                    </p>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Züge</p>
+                      <p className={`font-serif text-lg font-bold ${
+                        turnsRemaining <= 2 && !isGameOver ? "text-destructive" : "text-foreground"
+                      }`}>
+                        {Math.max(0, turnsRemaining)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Partner
+                      </p>
+                      <p className="font-serif text-lg font-bold text-foreground">
+                        {myRole === "player1" ? p2Remaining : p1Remaining}<span className="text-xs text-muted-foreground font-normal">/{AGENT_COUNT}</span>
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Turn indicator */}
+                  {!isGameOver && (
+                    <div className="flex items-center justify-center gap-1.5 pt-1">
+                      <div className={`h-2 w-2 rounded-full ${game.turn === myRole ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                      <span className="text-xs text-muted-foreground">
+                        {game.turn === myRole ? "🕵️ Du bist dran" : `🕵️ ${playerLabel[game.turn as Player]} ist dran`}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
 
                 {/* Your map — always visible */}
                 {myMap && (

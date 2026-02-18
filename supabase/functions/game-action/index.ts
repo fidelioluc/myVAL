@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getWordsForCategory } from "./words.ts";
+import { getWords } from "./words.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,13 +18,14 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+const AGENT_COUNT = 8;
+
 function generateMap() {
-  const agentCount = Math.floor(Math.random() * 4) + 6;
   const roles: string[] = Array(25).fill("neutral");
   const indices = shuffle(Array.from({ length: 25 }, (_, i) => i));
-  for (let i = 0; i < agentCount; i++) roles[indices[i]] = "agent";
-  for (let i = agentCount; i < agentCount + 3; i++) roles[indices[i]] = "assassin";
-  return { roles, agentCount };
+  for (let i = 0; i < AGENT_COUNT; i++) roles[indices[i]] = "agent";
+  for (let i = AGENT_COUNT; i < AGENT_COUNT + 3; i++) roles[indices[i]] = "assassin";
+  return { roles, agentCount: AGENT_COUNT };
 }
 
 // Strip opponent's map from game data so players can't cheat
@@ -61,8 +62,8 @@ Deno.serve(async (req) => {
     const { action, gameId, code, playerId, clue, clueNumber, guesses, category } = await req.json();
 
     if (action === "create") {
-      const pool = getWordsForCategory(category || "random");
-      if (pool.length < 25) return jsonResponse({ error: "Not enough words in category" }, 400);
+      const pool = getWords();
+      if (pool.length < 25) return jsonResponse({ error: "Not enough words" }, 400);
       const words = shuffle(pool).slice(0, 25);
       const { data, error } = await supabase
         .from("games")
